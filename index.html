@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Foto dengan Watermark Diagonal</title>
+<style>
+  body { font-family: Arial, sans-serif; text-align: center; background: #f0f8ff; }
+  #camera { width: 100%; max-width: 400px; border: 2px solid #4CAF50; border-radius: 10px; }
+  canvas { display: none; }
+  button { padding: 10px 20px; margin: 10px; border: none; cursor: pointer; background: #4CAF50; color: white; border-radius: 5px; font-size: 16px; }
+</style>
+</head>
+<body>
+
+<h2>Ambil Foto dengan Watermark</h2>
+<video id="camera" autoplay playsinline></video>
+<canvas id="canvas"></canvas><br>
+<button id="capture">📸 Ambil Foto</button>
+
+<script>
+const video = document.getElementById('camera');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const captureBtn = document.getElementById('capture');
+
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwSH1N5lCLcmBLxPvvU784LjJWeZzcHEzUKgQGubNIt55iMpCGeGhs2hPyJKVLgQK2y1Q/exec"; // Ganti dengan URL Apps Script kamu
+
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => { video.srcObject = stream; })
+  .catch(err => { alert("Gagal mengakses kamera: " + err); });
+
+captureBtn.addEventListener('click', async () => {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0);
+
+  // Ambil lokasi GPS
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const lat = pos.coords.latitude.toFixed(6);
+    const lng = pos.coords.longitude.toFixed(6);
+    const timestamp = new Date().toLocaleString();
+
+    // Tambahkan watermark diagonal transparan
+    ctx.save();
+    ctx.globalAlpha = 0.15; // transparansi watermark
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(-Math.atan(canvas.height / canvas.width)); // putar sesuai proporsi
+    ctx.font = `${canvas.width / 10}px Arial`;
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.fillText("BPJS KETENAGAKERJAAN", 0, 0);
+    ctx.restore();
+
+    // Tambahkan timestamp + lokasi di bawah
+    ctx.fillStyle = "white";
+    ctx.font = "20px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(`${timestamp} | ${lat}, ${lng}`, 10, canvas.height - 20);
+
+    // Kirim ke Google Apps Script
+    const fotoData = canvas.toDataURL("image/jpeg");
+    fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ 
+        image: fotoData, 
+        lat: lat, 
+        lng: lng, 
+        timestamp: timestamp, 
+        user: "User" 
+      }),
+      headers: { "Content-Type": "application/json" }
+    })
+    .then(res => res.text())
+    .then(res => alert("Foto berhasil diunggah!"))
+    .catch(err => alert("Gagal upload: " + err));
+
+  }, err => {
+    alert("Gagal mendapatkan lokasi: " + err.message);
+  });
+});
+</script>
+
+</body>
+</html>
